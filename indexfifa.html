@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FC 26 Live Database</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --accent: #38bdf8; --success: #22c55e; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+        
+        .header { text-align: center; margin-bottom: 2rem; }
+        .status { font-size: 0.8rem; color: #94a3b8; }
+        .status.online { color: var(--success); }
+
+        .filters { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        input, select { padding: 10px; border-radius: 5px; border: none; background: var(--card); color: white; }
+
+        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background: #0f172a; color: var(--accent); cursor: pointer; }
+        tr:hover { background: #334155; }
+        
+        .pot-high { color: var(--success); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>FC 26 <span>DATABASE</span></h1>
+        <p class="status" id="dbStatus">⚪ Connexion à la base de données...</p>
+    </div>
+
+    <div class="filters">
+        <input type="text" id="search" placeholder="Nom du joueur..." onkeyup="filterData()">
+        <select id="sort" onchange="sortData()">
+            <option value="pot">Trier par Potentiel</option>
+            <option value="ovr">Trier par Général</option>
+            <option value="val">Trier par Valeur</option>
+        </select>
+        <button onclick="loadDatabase()" style="background:var(--accent); border:none; padding:10px; border-radius:5px; cursor:pointer;">🔄 Actualiser Données</button>
+    </div>
+
+    <table id="table">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Âge</th>
+                <th>Poste</th>
+                <th>Général</th>
+                <th>Potentiel</th>
+                <th>Valeur</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+
+    <script>
+        let players = []; // Stockage local des données
+
+        // 1. CHARGEMENT AUTOMATIQUE DES DONNÉES
+        async function loadDatabase() {
+            const status = document.getElementById('dbStatus');
+            try {
+                // C'est ici que la magie opère : on va chercher le fichier externe
+                // Pour que ça marche "tout seul", tu peux remplacer './database.json' par une URL brute GitHub (Raw)
+                // Exemple : const response = await fetch('https://raw.githubusercontent.com/User/FC26-DB/main/db.json');
+                
+                const response = await fetch('./database.json'); 
+                
+                if (!response.ok) throw new Error("Fichier introuvable");
+
+                players = await response.json();
+                
+                status.innerHTML = "🟢 Base de données chargée : " + players.length + " joueurs.";
+                status.classList.add('online');
+                
+                sortData(); // Trier et afficher
+            } catch (error) {
+                console.error(error);
+                status.innerHTML = "🔴 Erreur : Impossible de charger les données. (Utilisez un serveur local)";
+                status.style.color = "red";
+            }
+        }
+
+        // 2. AFFICHAGE
+        function render(data) {
+            const tbody = document.getElementById('tbody');
+            tbody.innerHTML = data.map(p => `
+                <tr>
+                    <td><b>${p.name}</b></td>
+                    <td>${p.age}</td>
+                    <td>${p.pos.join(', ')}</td>
+                    <td>${p.ovr}</td>
+                    <td class="${p.pot - p.ovr > 5 ? 'pot-high' : ''}">${p.pot}</td>
+                    <td>${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumSignificantDigits: 3 }).format(p.value)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // 3. LOGIQUE DE TRI ET FILTRE
+        function filterData() {
+            const search = document.getElementById('search').value.toLowerCase();
+            const filtered = players.filter(p => p.name.toLowerCase().includes(search));
+            render(filtered);
+        }
+
+        function sortData() {
+            const crit = document.getElementById('sort').value;
+            // On trie une copie pour ne pas perdre l'ordre original
+            let sorted = [...players]; 
+            
+            if (crit === 'pot') sorted.sort((a, b) => b.pot - a.pot);
+            if (crit === 'ovr') sorted.sort((a, b) => b.ovr - a.ovr);
+            if (crit === 'val') sorted.sort((a, b) => b.value - a.value);
+
+            // On réapplique le filtre de recherche si besoin
+            const search = document.getElementById('search').value.toLowerCase();
+            if(search) {
+                sorted = sorted.filter(p => p.name.toLowerCase().includes(search));
+            }
+            
+            render(sorted);
+        }
+
+        // Lancer le chargement au démarrage
+        loadDatabase();
+    </script>
+</body>
+</html>
